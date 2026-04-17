@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>包装首件核对系统 | Hệ thống kiểm tra mẫu đầu tiên bao bì</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+VN:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 支持中文和越南语字体 */
+        body { 
+            background: #f0f2f5; 
+            font-family: 'Inter', 'Noto Sans SC', 'Noto Sans VN', sans-serif; 
+            padding: 24px 20px; 
+            color: #1e293b; 
+        }
+        .app-container { max-width: 1600px; margin: 0 auto; }
+        .header { background: white; border-radius: 28px; padding: 20px 28px; margin-bottom: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #e9eef3; position: relative; }
+        
+        /* 语言切换按钮样式 */
+        .lang-switch {
+            position: absolute;
+            top: 20px;
+            right: 28px;
+            display: flex;
+            gap: 8px;
+        }
+        .lang-btn {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .lang-btn.active {
+            background: #1f6392;
+            color: white;
+            border-color: #1f6392;
+        }
+        
+        h1 { font-size: 1.9rem; font-weight: 700; background: linear-gradient(135deg, #1f3a6b, #2b5c8a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .sub { color: #5b6e8c; font-size: 0.9rem; margin-top: 4px; border-left: 3px solid #2d7a9b; padding-left: 12px; }
+        .info-panel { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 20px; background: #f8fafc; padding: 16px 20px; border-radius: 20px; }
+        .info-item { display: flex; flex-direction: column; gap: 8px; min-width: 140px; }
+        .info-item label { font-weight: 600; font-size: 0.8rem; color: #4a5b7a; }
+        .info-item select, .info-item input { background: white; border: 1px solid #cfdee9; border-radius: 14px; padding: 10px 14px; font-size: 0.9rem; }
+        .col-setting { background: #e8f4f8; padding: 12px 20px; border-radius: 16px; margin: 10px 0; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .col-setting input { width: 60px; text-align: center; }
+        .bom-actions { display: flex; flex-wrap: wrap; gap: 15px; margin: 20px 0 16px; background: white; padding: 12px 20px; border-radius: 60px; border: 1px solid #eef2f8; }
+        .file-zone { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .file-label { background: #1f6392; color: white; padding: 8px 20px; border-radius: 40px; font-weight: 600; cursor: pointer; }
+        .file-label:hover { background: #0f4e74; }
+        input[type="file"] { display: none; }
+        .btn-outline { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 18px; cursor: pointer; }
+        .action-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin: 16px 0 20px; gap: 12px; }
+        .stats { background: white; border-radius: 40px; padding: 8px 20px; display: flex; gap: 24px; font-weight: 600; }
+        .stat-badge .number { font-size: 1.3rem; font-weight: 800; }
+        button { border: none; background: white; padding: 8px 20px; border-radius: 40px; font-weight: 600; cursor: pointer; border: 1px solid #e2e8f0; }
+        .btn-primary { background: #1f6392; color: white; }
+        .btn-secondary { background: #f1f5f9; }
+        .btn-print-page { background: #0ea5e9; color: white; margin-left: 8px; }
+        
+        /* 优化物料网格布局，加宽卡片 */
+        .material-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+            gap: 22px; 
+            margin-bottom: 40px; 
+        }
+        
+        /* 优化物料卡片样式 */
+        .material-card { 
+            background: white; 
+            border-radius: 24px; 
+            overflow: hidden; 
+            border: 1px solid #eef2f8;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 放大图片显示区域 */
+        .card-img-area { 
+            background: #f9fbfd; 
+            padding: 20px 16px; 
+            text-align: center; 
+            border-bottom: 1px solid #edf2f7;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        /* 放大物料图片尺寸 */
+        .material-img { 
+            width: 180px; 
+            height: 180px; 
+            object-fit: cover; 
+            border-radius: 18px; 
+            background: #f1f5f9; 
+            display: block; 
+            margin: 0 auto;
+            max-width: 100%;
+        }
+        
+        .upload-img-btn { 
+            margin-top: 12px; 
+            background: #eef2ff; 
+            border: 1px solid #cbdff2; 
+            font-size: 0.7rem; 
+            padding: 6px 14px; 
+            border-radius: 30px; 
+            cursor: pointer; 
+        }
+        
+        .card-info { 
+            padding: 16px;
+            flex-shrink: 0;
+        }
+        
+        /* 优化物料名称显示，支持多语言换行 */
+        .material-name { 
+            font-weight: 700; 
+            margin-bottom: 6px;
+            font-size: 1rem;
+            color: #1e293b;
+            word-wrap: break-word;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        
+        .material-qty { 
+            font-size: 0.8rem; 
+            color: #2d7a9b; 
+            background: #e6f7ff; 
+            padding: 3px 8px; 
+            border-radius: 10px; 
+            display: inline-block; 
+            margin-bottom: 10px; 
+        }
+        
+        .material-code { 
+            font-size: 0.8rem; 
+            color: #6b7f9f; 
+            background: #f1f5f9; 
+            padding: 2px 8px; 
+            border-radius: 20px; 
+            margin-bottom: 8px; 
+            display: inline-block; 
+        }
+        
+        .decision-buttons { 
+            display: flex; 
+            gap: 12px; 
+            margin-top: 8px; 
+        }
+        
+        .btn-pass { 
+            background: #e6f7ec; 
+            color: #1f7840; 
+            flex: 1; 
+            padding: 8px 0; 
+            border-radius: 40px; 
+            font-weight: 700; 
+        }
+        
+        .btn-pass.active-pass { 
+            background: #2b8c4a; 
+            color: white; 
+        }
+        
+        .btn-fail { 
+            background: #fee9e6; 
+            color: #c2412c; 
+            flex: 1; 
+            padding: 8px 0; 
+            border-radius: 40px; 
+            font-weight: 700; 
+        }
+        
+        .btn-fail.active-fail { 
+            background: #c2412c; 
+            color: white; 
+        }
+        
+        .result-badge { 
+            text-align: center; 
+            font-size: 0.7rem; 
+            margin-top: 8px; 
+            font-weight: 600; 
+        }
+        
+        .history-section { 
+            background: white; 
+            border-radius: 28px; 
+            padding: 20px 24px; 
+            margin-top: 20px; 
+        }
+        
+        .history-list { 
+            max-height: 280px; 
+            overflow-y: auto; 
+        }
+        
+        .history-item { 
+            background: #fafcff; 
+            border-radius: 18px; 
+            padding: 14px 16px; 
+            margin-bottom: 10px; 
+            border-left: 4px solid #2d7a9b; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+        }
+        
+        .empty-history { 
+            padding: 20px; 
+            text-align: center; 
+            color: #7f8ea3; 
+        }
+        
+        .debug-tip { 
+            margin: 10px 0; 
+            padding: 8px 16px; 
+            background: #fef7e5; 
+            border-left: 4px solid #f59e0b; 
+            font-size: 0.8rem; 
+            color: #7c2d12; 
+            border-radius: 8px; 
+        }
+
+        /* 查看弹窗 + 打印样式 */
+        .modal-back { position: fixed; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; display:flex; align-items:center; justify-content:center; }
+        .modal { background:white; width:90%; max-width:900px; max-height:85vh; border-radius:20px; padding:24px; overflow-y:auto; }
+        .modal-title { font-size:1.2rem; font-weight:700; margin-bottom:16px; }
+        .info-line { margin:8px 0; font-size:0.9rem; }
+        .print-table { width:100%; border-collapse: collapse; margin-top:16px; font-size:0.85rem; }
+        .print-table th, .print-table td { border:1px solid #ddd; padding:8px; text-align:center; }
+        .print-table th { background:#f5f7fa; }
+        .btn-print { background:#2563eb; color:white; margin-left:8px; }
+        .btn-close { background:#f1f5f9; }
+
+        /* 全局打印样式优化 - 适配不同纸张 */
+        @media print {
+            body * { visibility: hidden; }
+            #app, #app * { visibility: visible; }
+            .modal-back, .btn-print, .btn-print-page, .btn-close, .file-label, .btn-outline, .btn-primary, .btn-secondary, .lang-switch { display: none !important; }
+            footer, .history-section { display: none !important; }
+
+            .app-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 1% 2%; 
+                margin: 0;
+                box-sizing: border-box;
+            }
+
+            @page size:A4 {
+                size: A4;
+                margin: 15mm 10mm;
+            }
+
+            @page size:A3 {
+                size: A3;
+                margin: 10mm 10mm;
+            }
+
+            @page size:letter {
+                size: letter;
+                margin: 1in 0.75in;
+            }
+
+            .material-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 8px;
+                page-break-after: avoid;
+            }
+
+            .material-card {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                width: 100%;
+                margin: 4px 0;
+            }
+
+            .material-name { font-size: 0.9rem; }
+            .material-code { font-size: 0.8rem; }
+            .material-qty { font-size: 0.75rem; }
+            .stat-badge { font-size: 0.85rem; }
+            .stat-badge .number { font-size: 1.1rem; }
+
+            .material-img {
+                width: 80%;
+                max-width: 120px;
+                height: auto;
+            }
+        }
+
+        /* 单条记录打印样式 */
+        #print-area, #print-area * { visibility: visible; }
+        #print-area {
+            position: absolute;
+            left:0;
+            top:0;
+            width: 100%;
+            padding: 2%;
+        }
+        .print-table {
+            width: 100%;
+            font-size: 0.8rem;
+        }
+
+        footer { text-align: center; margin-top: 30px; font-size: 0.7rem; color: #7f8ea3; }
+        @media (max-width: 640px) { 
+            .material-grid { grid-template-columns: 1fr; }
+            .material-img { width: 150px; height: 150px; }
+            .lang-switch { position: static; margin-top: 10px; justify-content: flex-start; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="app-container">
+        <div class="header">
+            <!-- 语言切换按钮 -->
+            <div class="lang-switch">
+                <button class="lang-btn" :class="{active: currentLang === 'zh'}" @click="switchLang('zh')">中文</button>
+                <button class="lang-btn" :class="{active: currentLang === 'vn'}" @click="switchLang('vn')">Tiếng Việt</button>
+            </div>
+            
+            <h1>{{ t('title') }}</h1>
+            <div class="sub">{{ t('subtitle') }}</div>
+            <div class="info-panel">
+                <div class="info-item">
+                    <label>{{ t('model') }}</label>
+                    <input type="text" v-model="selectedModel" :placeholder="t('model_placeholder')">
+                </div>
+                <div class="info-item">
+                    <label>{{ t('operator') }}</label>
+                    <input type="text" v-model="operator" :placeholder="t('operator_placeholder')">
+                </div>
+                <div class="info-item">
+                    <label>{{ t('date') }}</label>
+                    <input type="date" v-model="checkDate">
+                </div>
+                <div class="info-item">
+                    <label>{{ t('time') }}</label>
+                    <input type="time" v-model="shift">
+                </div>
+            </div>
+            
+            <div class="col-setting">
+                <label>{{ t('bom_config') }}：</label>
+                <div>{{ t('start_row') }}：<input type="number" v-model="startRow" min="0" :placeholder="t('start_row_placeholder')"></div>
+                <div>{{ t('code_col') }}：<input type="number" v-model="codeCol" min="0" :placeholder="t('code_col_placeholder')"></div>
+                <div>{{ t('name_col') }}：<input type="number" v-model="nameCol" min="0" :placeholder="t('name_col_placeholder')"></div>
+                <div>{{ t('qty_col') }}：<input type="number" v-model="qtyCol" min="0" :placeholder="t('qty_col_placeholder')"></div>
+                <button @click="confirmColSetting" class="btn-outline">{{ t('confirm_config') }}</button>
+            </div>
+            
+            <div class="debug-tip" v-if="debugMsg">{{ debugMsg }}</div>
+        </div>
+
+        <div class="bom-actions">
+            <div class="file-zone">
+                <label class="file-label">
+                    📂 {{ t('upload_bom') }}
+                    <input type="file" accept=".xlsx,.xls,.csv" @change="handleBOMUpload">
+                </label>
+                <button class="btn-outline" @click="clearAllMaterials">🗑️ {{ t('clear_materials') }}</button>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <div class="stats">
+                <div class="stat-badge">✅ {{ t('pass') }} <span class="number">{{ passCount }}</span></div>
+                <div class="stat-badge">❌ {{ t('fail') }} <span class="number">{{ failCount }}</span></div>
+                <div class="stat-badge">⏳ {{ t('pending') }} <span class="number">{{ pendingCount }}</span></div>
+                <div class="stat-badge">📦 {{ t('total') }} <span class="number">{{ materials.length }}</span></div>
+            </div>
+            <div>
+                <button class="btn-secondary" @click="resetAllJudgments">🔄 {{ t('reset') }}</button>
+                <button class="btn-primary" @click="submitCheck">📎 {{ t('submit') }}</button>
+                <button class="btn-print-page" @click="printCurrentPage">🖨️ {{ t('print_page') }}</button>
+            </div>
+        </div>
+
+        <div class="material-grid">
+            <div class="material-card" v-for="item in materials" :key="item.id">
+                <div class="card-img-area">
+                    <img class="material-img" :src="item.imageData || defaultImage" @error="imgError(item)">
+                    <label class="upload-img-btn" :for="'up'+item.id">📷 {{ t('upload_image') }} ({{ t('auto_compress') }})</label>
+                    <input type="file" :id="'up'+item.id" accept="image/*" style="display:none" @change="e=>uploadMaterialImage(item,e)">
+                </div>
+                <div class="card-info">
+                    <!-- 显示物料名称，支持多语言 -->
+                    <div class="material-name">{{ item.name || t('no_material_name') }}</div>
+                    <div class="material-code">{{ item.code }}</div>
+                    <div class="material-qty">{{ t('quantity') }}：{{ item.qty }}</div>
+                    <div class="decision-buttons">
+                        <button class="btn-pass" :class="{ 'active-pass': item.result === 'pass' }" @click="setResult(item,'pass')">{{ t('pass') }}</button>
+                        <button class="btn-fail" :class="{ 'active-fail': item.result === 'fail' }" @click="setResult(item,'fail')">{{ t('fail') }}</button>
+                    </div>
+                    <div class="result-badge" v-if="item.result === 'pass'">✔ {{ t('qualified') }}</div>
+                    <div class="result-badge" v-else-if="item.result === 'fail'">⚠ {{ t('unqualified') }}</div>
+                    <div class="result-badge" v-else>⚪ {{ t('pending_check') }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <div style="display:flex;justify-content:space-between;">
+                <span>📋 {{ t('history_records') }}</span>
+                <button class="btn-secondary" style="padding:4px 12px" @click="clearHistory">{{ t('clear_history') }}</button>
+            </div>
+            <div class="history-list">
+                <div v-if="!historyRecords.length" class="empty-history">{{ t('no_records') }}</div>
+                
+                <div v-for="(r,idx) in historyRecords" :key="idx" class="history-item">
+                    <div>
+                        {{ r.modelName }} | {{ r.operator }} | {{ r.date }} {{ r.shift }} 
+                        ✅{{ r.passQty }} | ❌{{ r.failQty }} | 📦{{ r.totalQty }}
+                    </div>
+                    <div>
+                        <button class="btn-secondary" style="padding:4px 10px" @click="viewRecord(r,idx)">{{ t('view') }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>{{ t('footer_text') }}</footer>
+    </div>
+
+    <!-- 查看记录弹窗 -->
+    <div class="modal-back" v-if="showModal" @click.self="showModal=false">
+        <div class="modal" id="print-area">
+            <div class="modal-title">📋 {{ t('record_detail') }}</div>
+            <div class="info-line"><b>{{ t('model') }}：</b>{{ currentRecord.modelName }}</div>
+            <div class="info-line"><b>{{ t('operator') }}：</b>{{ currentRecord.operator }}</div>
+            <div class="info-line"><b>{{ t('datetime') }}：</b>{{ currentRecord.date }} {{ currentRecord.shift }}</div>
+            <div class="info-line"><b>{{ t('submit_time') }}：</b>{{ currentRecord.timeStr }}</div>
+            <div class="info-line"><b>{{ t('total') }}：</b> {{ currentRecord.totalQty }} {{ t('items') }} | ✅{{ t('pass') }}：{{ currentRecord.passQty }} | ❌{{ t('unqualified') }}：{{ currentRecord.failQty }}</div>
+            
+            <table class="print-table">
+                <tr>
+                    <th>{{ t('serial_number') }}</th>
+                    <th>{{ t('material_name') }}</th>
+                    <th>{{ t('material_code') }}</th>
+                    <th>{{ t('quantity') }}</th>
+                    <th>{{ t('result') }}</th>
+                </tr>
+                <tr v-for="(it,i) in currentRecord.items" :key="i">
+                    <td>{{ i+1 }}</td>
+                    <td>{{ it.name || t('not_filled') }}</td>
+                    <td>{{ it.code }}</td>
+                    <td>{{ it.qty }}</td>
+                    <td :style="it.result==='pass'?'color:green;font-weight:bold':'color:red;font-weight:bold'">
+                        {{ it.result==='pass'?t('pass'):t('fail') }}
+                    </td>
+                </tr>
+            </table>
+
+            <div style="text-align:right;margin-top:20px;">
+                <button class="btn-close" @click="showModal=false">{{ t('close') }}</button>
+                <button class="btn-print" @click="printRecord">{{ t('print_this_record') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const DEFAULT_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' fill='%23e2e8f0'/%3E%3Ctext x='90' y='95' text-anchor='middle' fill='%23999' font-size='14'%3E无图片%3C/text%3E%3C/svg%3E";
+const STORAGE_KEY = 'bom_check_history';
+
+// 多语言配置
+const langConfig = {
+    zh: {
+        title: '包装首件核对系统',
+        subtitle: '可自定义BOM列号，适配多种格式文件 | 支持中文/越南语显示',
+        model: '📌 机型/项目',
+        model_placeholder: '手动输入机型/项目 (支持中文/越南语)',
+        operator: '👤 操作员',
+        operator_placeholder: '工号/姓名 (支持中文/越南语)',
+        date: '📅 日期',
+        time: '⏰ 时间',
+        bom_config: 'BOM解析配置',
+        start_row: '起始行号',
+        start_row_placeholder: '1',
+        code_col: '编码列号',
+        code_col_placeholder: '3',
+        name_col: '名称列号',
+        name_col_placeholder: '4',
+        qty_col: '数量列号',
+        qty_col_placeholder: '8',
+        confirm_config: '确认配置',
+        upload_bom: '上传 BOM',
+        clear_materials: '清空物料',
+        pass: 'PASS',
+        fail: 'FAIL',
+        pending: '待判定',
+        total: '总数',
+        reset: '重置',
+        submit: '提交',
+        print_page: '打印当前页面',
+        upload_image: '上传图片',
+        auto_compress: '自动压缩',
+        no_material_name: '未填写物料名称',
+        quantity: '数量',
+        qualified: '合格',
+        unqualified: '不合格',
+        pending_check: '待核对',
+        history_records: '历史记录',
+        clear_history: '清空记录',
+        no_records: '暂无记录',
+        view: '查看',
+        footer_text: '首件核对系统 | 支持中文/越南语 | 图片自动压缩',
+        record_detail: '首件核对记录详情',
+        datetime: '日期时间',
+        submit_time: '提交时间',
+        items: '项',
+        serial_number: '序号',
+        material_name: '物料名称',
+        material_code: '物料编码',
+        result: '结果',
+        not_filled: '未填写',
+        close: '关闭',
+        print_this_record: '打印本记录',
+        
+        // 提示语
+        config_effective: '✅ 配置生效：起始行{0} | 编码列{1} | 名称列{2} | 数量列{3}',
+        config_saved: '配置已生效',
+        file_rows: '📂 读取文件，总行数：{0}',
+        file_data_insufficient: '❌ 文件数据不足',
+        confirm_config_first: '请先确认配置',
+        no_valid_materials: '❌ 无有效物料',
+        no_materials_alert: '未解析到有效物料',
+        parse_success: '✅ 成功 {0} 项',
+        parse_success_alert: '解析成功：{0} 项',
+        no_file_selected: '❌ 未选择文件',
+        upload_file: '📥 上传：{0}',
+        parse_failed: '❌ 解析失败',
+        parse_failed_alert: '解析失败',
+        compressing_image: '🖼️ 正在压缩图片...',
+        compress_success: '✅ 图片压缩完成：{0}KB → {1}KB',
+        compress_failed: '❌ 图片压缩失败，使用原图',
+        fill_model: '填写项目',
+        fill_operator: '填写操作员',
+        select_time: '选择时间',
+        no_materials: '无物料',
+        pending_items: '还有 {0} 项未判定',
+        submit_success: '提交成功！',
+        confirm_clear_materials: '清空？',
+        confirm_clear_history: '确定清空所有历史记录？',
+        confirm_print_page: '确认打印当前核对页面吗？'
+    },
+    vn: {
+        title: 'Hệ thống kiểm tra mẫu đầu tiên bao bì',
+        subtitle: 'Có thể tùy chỉnh số cột BOM, thích ứng với nhiều định dạng tệp | Hỗ trợ hiển thị tiếng Trung/Tiếng Việt',
+        model: '📌 Mô hình/Dự án',
+        model_placeholder: 'Nhập mô hình/dự án thủ công (hỗ trợ tiếng Trung/Tiếng Việt)',
+        operator: '👤 Người vận hành',
+        operator_placeholder: 'Mã nhân viên/Tên (hỗ trợ tiếng Trung/Tiếng Việt)',
+        date: '📅 Ngày',
+        time: '⏰ Giờ',
+        bom_config: 'Cấu hình phân tích BOM',
+        start_row: 'Số hàng bắt đầu',
+        start_row_placeholder: '1',
+        code_col: 'Số cột mã',
+        code_col_placeholder: '3',
+        name_col: 'Số cột tên',
+        name_col_placeholder: '4',
+        qty_col: 'Số cột số lượng',
+        qty_col_placeholder: '8',
+        confirm_config: 'Xác nhận cấu hình',
+        upload_bom: 'Tải lên BOM',
+        clear_materials: 'Xóa tất cả vật liệu',
+        pass: 'ĐƯỢC',
+        fail: 'KHÔNG',
+        pending: 'Chờ xác định',
+        total: 'Tổng số',
+        reset: 'Đặt lại',
+        submit: 'Gửi',
+        print_page: 'In trang hiện tại',
+        upload_image: 'Tải lên ảnh',
+        auto_compress: 'Nén tự động',
+        no_material_name: 'Chưa nhập tên vật liệu',
+        quantity: 'Số lượng',
+        qualified: 'Đủ tiêu chuẩn',
+        unqualified: 'Không đủ tiêu chuẩn',
+        pending_check: 'Chờ kiểm tra',
+        history_records: 'Lịch sử bản ghi',
+        clear_history: 'Xóa lịch sử',
+        no_records: 'Không có bản ghi',
+        view: 'Xem',
+        footer_text: 'Hệ thống kiểm tra mẫu đầu tiên | Hỗ trợ tiếng Trung/Tiếng Việt | Nén ảnh tự động',
+        record_detail: 'Chi tiết bản ghi kiểm tra mẫu đầu tiên',
+        datetime: 'Ngày giờ',
+        submit_time: 'Thời gian gửi',
+        items: 'mục',
+        serial_number: 'Số thứ tự',
+        material_name: 'Tên vật liệu',
+        material_code: 'Mã vật liệu',
+        result: 'Kết quả',
+        not_filled: 'Chưa điền',
+        close: 'Đóng',
+        print_this_record: 'In bản ghi này',
+        
+        // 提示语
+        config_effective: '✅ Cấu hình có hiệu lực：Hàng bắt đầu {0} | Cột mã {1} | Cột tên {2} | Cột số lượng {3}',
+        config_saved: 'Cấu hình đã có hiệu lực',
+        file_rows: '📂 Đọc tệp, tổng số hàng：{0}',
+        file_data_insufficient: '❌ Dữ liệu tệp không đủ',
+        confirm_config_first: 'Vui lòng xác nhận cấu hình trước',
+        no_valid_materials: '❌ Không có vật liệu hợp lệ',
+        no_materials_alert: 'Không phân tích được vật liệu hợp lệ',
+        parse_success: '✅ Thành công {0} mục',
+        parse_success_alert: 'Phân tích thành công：{0} mục',
+        no_file_selected: '❌ Chưa chọn tệp',
+        upload_file: '📥 Tải lên：{0}',
+        parse_failed: '❌ Phân tích thất bại',
+        parse_failed_alert: 'Phân tích thất bại',
+        compressing_image: '🖼️ Đang nén ảnh...',
+        compress_success: '✅ Nén ảnh hoàn thành：{0}KB → {1}KB',
+        compress_failed: '❌ Nén ảnh thất bại, sử dụng ảnh gốc',
+        fill_model: 'Điền dự án',
+        fill_operator: 'Điền người vận hành',
+        select_time: 'Chọn thời gian',
+        no_materials: 'Không có vật liệu',
+        pending_items: 'Còn {0} mục chờ xác định',
+        submit_success: 'Gửi thành công！',
+        confirm_clear_materials: 'Xóa tất cả？',
+        confirm_clear_history: 'Xác nhận xóa tất cả lịch sử bản ghi？',
+        confirm_print_page: 'Xác nhận in trang kiểm tra hiện tại？'
+    }
+};
+
+// 图片压缩函数
+const compressImage = (file, quality = 0.7, maxWidth = 1000, maxHeight = 1000) => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // 按比例缩放图片
+                if (width > maxWidth) {
+                    height = height * (maxWidth / width);
+                    width = maxWidth;
+                }
+                if (height > maxHeight) {
+                    width = width * (maxHeight / height);
+                    height = maxHeight;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // 根据文件类型选择压缩格式
+                const ext = file.type.split('/')[1];
+                const dataURL = canvas.toDataURL(`image/${ext}`, quality);
+                
+                resolve(dataURL);
+            };
+        };
+    });
+};
+
+createApp({
+    setup() {
+        // 语言切换相关
+        const currentLang = ref('zh'); // 默认中文
+        
+        // 翻译函数
+        const t = (key, ...args) => {
+            let text = langConfig[currentLang.value][key] || key;
+            // 替换占位符 {0}, {1} 等
+            args.forEach((val, idx) => {
+                text = text.replace(`{${idx}}`, val);
+            });
+            return text;
+        };
+        
+        // 切换语言
+        const switchLang = (lang) => {
+            currentLang.value = lang;
+            // 更新HTML lang属性
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'vi-VN';
+        };
+
+        const selectedModel = ref('');
+        const operator = ref('');
+        const today = new Date();
+        const checkDate = ref(`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`);
+        const shift = ref('');
+        const materials = ref([]);
+        const historyRecords = ref([]);
+        const defaultImage = DEFAULT_IMG;
+        const debugMsg = ref('');
+
+        // 新增物料名称列配置
+        const startRow = ref(1);
+        const codeCol = ref(3);
+        const nameCol = ref(4); // 物料名称列号
+        const qtyCol = ref(8);
+        const colSettingConfirmed = ref(true);
+
+        // 查看记录
+        const showModal = ref(false);
+        const currentRecord = ref({});
+
+        const passCount = computed(() => materials.value.filter(m=>m.result==='pass').length);
+        const failCount = computed(() => materials.value.filter(m=>m.result==='fail').length);
+        const pendingCount = computed(() => materials.value.filter(m=>!m.result).length);
+
+        const loadHistory = () => { try{const s=localStorage.getItem(STORAGE_KEY);if(s)historyRecords.value=JSON.parse(s);}catch(e){} };
+        const saveHistory = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(historyRecords.value));
+        
+        const addHistoryRecord = (model,op,dt,sf,p,f,t)=>{
+            const now=new Date();
+            const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+            const items = JSON.parse(JSON.stringify(materials.value));
+            historyRecords.value.unshift({
+                modelName:model, operator:op, date:dt, shift:sf,
+                passQty:p, failQty:f, totalQty:t, timeStr, items
+            });
+            if(historyRecords.value.length>30)historyRecords.value.pop();
+            saveHistory();
+        };
+
+        const clearHistory=()=>{
+            if(confirm(t('confirm_clear_history'))){
+                historyRecords.value=[];
+                saveHistory();
+            }
+        };
+
+        const confirmColSetting = () => {
+            colSettingConfirmed.value = true;
+            debugMsg.value = t('config_effective', startRow.value, codeCol.value, nameCol.value, qtyCol.value);
+            alert(t('config_saved'));
+        };
+
+        const parseBOM = (rows)=>{
+            debugMsg.value = t('file_rows', rows.length);
+            if(!rows||rows.length<2){ debugMsg.value=t('file_data_insufficient'); return []; }
+            if(!colSettingConfirmed.value){ alert(t('confirm_config_first')); return []; }
+
+            const sRow = parseInt(startRow.value);
+            const cCol = parseInt(codeCol.value);
+            const nCol = parseInt(nameCol.value); // 物料名称列
+            const qCol = parseInt(qtyCol.value);
+            const items=[];
+            let invalidCount = 0;
+
+            for(let i=sRow; i<rows.length; i++){
+                const row = rows[i];
+                if(!row) continue;
+                const code = row[cCol] ? String(row[cCol]).trim() : '';
+                if(!code || code.length<2 || code.toLowerCase().includes('编码') || code.toLowerCase().includes('mã')){ invalidCount++; continue; }
+                
+                // 读取物料名称（支持中文/越南语）
+                const name = row[nCol] ? String(row[nCol]).trim() : '';
+                
+                let qty = 0;
+                if(row[qCol]){
+                    const qtyStr = String(row[qCol]).trim().replace(/,/g,'');
+                    qty = parseFloat(qtyStr)||0;
+                }
+                if(qty<=0){ invalidCount++; continue; }
+                items.push({ 
+                    id:'m'+Date.now()+Math.random(), 
+                    code, 
+                    name, // 新增物料名称字段
+                    qty, 
+                    imageData:null, 
+                    result:null 
+                });
+            }
+
+            if(items.length===0){
+                debugMsg.value=t('no_valid_materials');
+                alert(t('no_materials_alert'));
+            }else{
+                debugMsg.value=t('parse_success', items.length);
+                alert(t('parse_success_alert', items.length));
+            }
+            return items;
+        };
+
+        const handleBOMUpload=(e)=>{
+            const file=e.target.files[0];
+            if(!file){ debugMsg.value=t('no_file_selected'); return; }
+            materials.value = [];
+            debugMsg.value = t('upload_file', file.name);
+            const reader=new FileReader();
+            reader.onload=(ev)=>{
+                try {
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    const ws=wb.Sheets[wb.SheetNames[0]];
+                    const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+                    materials.value=parseBOM(rows);
+                } catch (err) {
+                    debugMsg.value=t('parse_failed');
+                    alert(t('parse_failed_alert'));
+                }
+                e.target.value='';
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // 优化图片上传，增加压缩功能
+        const uploadMaterialImage=async (item,e)=>{
+            const f=e.target.files[0];
+            if(!f)return;
+            
+            try {
+                // 显示加载提示
+                debugMsg.value = t('compressing_image');
+                
+                // 压缩图片：质量70%，最大尺寸1000px
+                const compressedDataUrl = await compressImage(f, 0.7, 1000, 1000);
+                
+                // 更新物料图片
+                item.imageData = compressedDataUrl;
+                materials.value = [...materials.value];
+                
+                // 计算压缩比例
+                const originalSize = (f.size / 1024).toFixed(2);
+                const compressedSize = (compressedDataUrl.length * 0.75 / 1024).toFixed(2);
+                debugMsg.value = t('compress_success', originalSize, compressedSize);
+                
+            } catch (error) {
+                debugMsg.value = t('compress_failed');
+                // 压缩失败时使用原图
+                const reader=new FileReader();
+                reader.onload=ev=>{
+                    item.imageData=ev.target.result;
+                    materials.value=[...materials.value];
+                };
+                reader.readAsDataURL(f);
+            }
+        };
+
+        const imgError=(item)=>{ item.imageData=DEFAULT_IMG; };
+
+        const setResult=(i,s)=>{ i.result = i.result===s ? null : s; };
+        const resetAllJudgments=()=>{ materials.value.forEach(m=>m.result=null); };
+        const clearAllMaterials=()=>{ if(confirm(t('confirm_clear_materials')))materials.value=[]; };
+
+        const submitCheck=()=>{
+            if(!selectedModel.value)return alert(t('fill_model'));
+            if(!operator.value)return alert(t('fill_operator'));
+            if(!shift.value)return alert(t('select_time'));
+            if(!materials.value.length)return alert(t('no_materials'));
+            if(pendingCount.value>0)return alert(t('pending_items', pendingCount.value));
+            addHistoryRecord(selectedModel.value,operator.value,checkDate.value,shift.value,passCount.value,failCount.value,materials.value.length);
+            alert(t('submit_success'));
+        };
+
+        // 查看记录
+        const viewRecord=(r,idx)=>{
+            currentRecord.value = JSON.parse(JSON.stringify(r));
+            showModal.value=true;
+        };
+
+        // 打印单条记录
+        const printRecord=()=>{
+            setTimeout(()=>window.print(),200);
+        };
+
+        // 打印当前页面
+        const printCurrentPage=()=>{
+            if(confirm(t('confirm_print_page'))){
+                setTimeout(()=>window.print(), 200);
+            }
+        };
+
+        onMounted(()=>{ 
+            loadHistory(); 
+            confirmColSetting(); 
+            // 检测浏览器语言
+            const browserLang = navigator.language || navigator.userLanguage;
+            if (browserLang.includes('vi')) {
+                switchLang('vn');
+            }
+        });
+
+        return {
+            currentLang,
+            switchLang,
+            t,
+            selectedModel,operator,checkDate,shift,materials,historyRecords,
+            passCount,failCount,pendingCount,defaultImage,
+            startRow,codeCol,nameCol,qtyCol,confirmColSetting, // 新增nameCol
+            handleBOMUpload,clearAllMaterials,uploadMaterialImage,imgError,
+            setResult,resetAllJudgments,submitCheck,clearHistory,
+            debugMsg, showModal,currentRecord,viewRecord,printRecord,
+            printCurrentPage
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
