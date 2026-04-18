@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>包装首件核对系统 | Hệ thống kiểm tra mẫu đầu tiên bao bì</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@400,500,600,700&family=Noto+Sans+SC:wght@400,500,700&family=Noto+Sans+VN:wght@400,500,700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #f0f2f5; 
+            font-family: 'Inter', 'Noto Sans SC', 'Noto Sans VN', sans-serif; 
+            padding: 24px 20px; 
+            color: #1e293b; 
+        }
+        .app-container { max-width: 1600px; margin: 0 auto; }
+        .header { 
+            background: white; 
+            border-radius: 28px; 
+            padding: 20px 28px; 
+            margin-bottom: 28px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03); 
+            border: 1px solid #e9eef3; 
+            position: relative; 
+        }
+        
+        .lang-switch {
+            position: absolute;
+            top: 20px;
+            right: 28px;
+            display: flex;
+            gap: 8px;
+        }
+        .lang-btn {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .lang-btn.active {
+            background: #1f6392;
+            color: white;
+            border-color: #1f6392;
+        }
+        
+        h1 { 
+            font-size: 1.9rem; 
+            font-weight: 700; 
+            background: linear-gradient(135deg, #1f3a6b, #2b5c8a); 
+            -webkit-background-clip: text; 
+            background-clip: text; 
+            color: transparent; 
+        }
+        .sub { 
+            color: #5b6e8c; 
+            font-size: 0.9rem; 
+            margin-top: 4px; 
+            border-left: 3px solid #2d7a9b; 
+            padding-left: 12px; 
+        }
+        .info-panel { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 24px; 
+            margin-top: 20px; 
+            background: #f8fafc; 
+            padding: 16px 20px; 
+            border-radius: 20px; 
+        }
+        .info-item { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            min-width: 140px; 
+        }
+        .info-item label { 
+            font-weight: 600; 
+            font-size: 0.8rem; 
+            color: #4a5b7a; 
+        }
+        .info-item select, .info-item input { 
+            background: white; 
+            border: 1px solid #cfdee9; 
+            border-radius: 14px; 
+            padding: 10px 14px; 
+            font-size: 0.9rem; 
+        }
+        
+        .col-setting { 
+            background: #e8f4f8; 
+            padding: 16px 20px; 
+            border-radius: 16px; 
+            margin: 10px 0; 
+            display: flex; 
+            align-items: center; 
+            gap: 15px; 
+            flex-wrap: wrap;
+        }
+        .col-setting .auto-tip {
+            color: #1f6392;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .col-setting input { 
+            width: 60px; 
+            text-align: center; 
+        }
+        .bom-actions { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 15px; 
+            margin: 20px 0 16px; 
+            background: white; 
+            padding: 12px 20px; 
+            border-radius: 60px; 
+            border: 1px solid #eef2f8; 
+        }
+        .file-zone { 
+            display: flex; 
+            gap: 12px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+        }
+        .file-label { 
+            background: #1f6392; 
+            color: white; 
+            padding: 8px 20px; 
+            border-radius: 40px; 
+            font-weight: 600; 
+            cursor: pointer; 
+        }
+        .file-label:hover { 
+            background: #0f4e74; 
+        }
+        input[type="file"] { display: none; }
+        .btn-outline { 
+            background: #f1f5f9; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 40px; 
+            padding: 8px 18px; 
+            cursor: pointer; 
+        }
+        .action-bar { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            margin: 16px 0 20px; 
+            gap: 12px; 
+        }
+        .stats { 
+            background: white; 
+            border-radius: 40px; 
+            padding: 8px 20px; 
+            display: flex; 
+            gap: 24px; 
+            font-weight: 600; 
+        }
+        .stat-badge .number { 
+            font-size: 1.3rem; 
+            font-weight: 800; 
+        }
+        button { 
+            border: none; 
+            background: white; 
+            padding: 8px 20px; 
+            border-radius: 40px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            border: 1px solid #e2e8f0; 
+        }
+        .btn-primary { 
+            background: #1f6392; 
+            color: white; 
+        }
+        .btn-secondary { 
+            background: #f1f5f9; 
+        }
+        .btn-print-page { 
+            background: #0ea5e9; 
+            color: white; 
+            margin-left: 8px; 
+        }
+        
+        .material-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 16px; 
+            margin-bottom: 40px; 
+        }
+        
+        .material-card { 
+            background: white; 
+            border-radius: 24px; 
+            overflow: hidden; 
+            border: 1px solid #eef2f8;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            min-height: 450px;
+        }
+        
+        .card-img-area { 
+            background: #f9fbfd; 
+            padding: 16px; 
+            text-align: center; 
+            border-bottom: 1px solid #edf2f7;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .material-img { 
+            width: 100%; 
+            height: 100%; 
+            max-width: 300px;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 18px; 
+            background: #f1f5f9; 
+            display: block; 
+        }
+        
+        .upload-img-btn { 
+            margin-top: 12px; 
+            background: #eef2ff; 
+            border: 1px solid #cbdff2; 
+            font-size: 0.7rem; 
+            padding: 6px 14px; 
+            border-radius: 30px; 
+            cursor: pointer; 
+            align-self: center;
+        }
+        
+        .card-info { 
+            padding: 12px 16px;
+            flex-shrink: 0;
+        }
+        
+        .material-name { 
+            font-weight: 700; 
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+            color: #1e293b;
+            word-wrap: break-word;
+            word-break: break-all;
+            line-height: 1.3;
+        }
+        
+        .material-qty { 
+            font-size: 0.75rem; 
+            color: #2d7a9b; 
+            background: #e6f7ff; 
+            padding: 2px 6px; 
+            border-radius: 8px; 
+            display: inline-block; 
+            margin-bottom: 6px; 
+        }
+        
+        .material-code { 
+            font-size: 0.75rem; 
+            color: #6b7f9f; 
+            background: #f1f5f9; 
+            padding: 2px 6px; 
+            border-radius: 16px; 
+            margin-bottom: 6px; 
+            display: inline-block; 
+        }
+        
+        .decision-buttons { 
+            display: flex; 
+            gap: 8px; 
+            margin-top: 6px; 
+        }
+        
+        .btn-pass { 
+            background: #e6f7ec; 
+            color: #1f7840; 
+            flex: 1; 
+            padding: 6px 0; 
+            border-radius: 40px; 
+            font-weight: 700;
+            font-size: 0.8rem; 
+        }
+        
+        .btn-pass.active-pass { 
+            background: #2b8c4a; 
+            color: white; 
+        }
+        
+        .btn-fail { 
+            background: #fee9e6; 
+            color: #c2412c; 
+            flex: 1; 
+            padding: 6px 0; 
+            border-radius: 40px; 
+            font-weight: 700;
+            font-size: 0.8rem; 
+        }
+        
+        .btn-fail.active-fail { 
+            background: #c2412c; 
+            color: white; 
+        }
+        
+        .result-badge { 
+            text-align: center; 
+            font-size: 0.7rem; 
+            margin-top: 4px; 
+            font-weight: 600; 
+        }
+        
+        .history-section { 
+            background: white; 
+            border-radius: 28px; 
+            padding: 20px 24px; 
+            margin-top: 20px; 
+        }
+        
+        .history-list { 
+            max-height: 280px; 
+            overflow-y: auto; 
+        }
+        
+        .history-item { 
+            background: #fafcff; 
+            border-radius: 18px; 
+            padding: 14px 16px; 
+            margin-bottom: 10px; 
+            border-left: 4px solid #2d7a9b; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+        }
+        
+        .empty-history { 
+            padding: 20px; 
+            text-align: center; 
+            color: #7f8ea3; 
+        }
+        
+        .debug-tip { 
+            margin: 10px 0; 
+            padding: 8px 16px; 
+            background: #fef7e5; 
+            border-left: 4px solid #f59e0b; 
+            font-size: 0.8rem; 
+            color: #7c2d12; 
+            border-radius: 8px; 
+        }
+
+        .modal-back { 
+            position: fixed; 
+            left:0; 
+            top:0; 
+            width:100%; 
+            height:100%; 
+            background:rgba(0,0,0,0.5); 
+            z-index:999; 
+            display:flex; 
+            align-items:center; 
+            justify-content:center; 
+        }
+        .modal { 
+            background:white; 
+            width:90%; 
+            max-width:900px; 
+            max-height:85vh; 
+            border-radius:20px; 
+            padding:24px; 
+            overflow-y:auto; 
+        }
+        .modal-title { 
+            font-size:1.2rem; 
+            font-weight:700; 
+            margin-bottom:16px; 
+        }
+        .info-line { 
+            margin:8px 0; 
+            font-size:0.9rem; 
+        }
+        .print-table { 
+            width:100%; 
+            border-collapse: collapse; 
+            margin-top:16px; 
+            font-size:0.85rem; 
+        }
+        .print-table th, .print-table td { 
+            border:1px solid #ddd; 
+            padding:8px; 
+            text-align:center; 
+        }
+        .print-table th { 
+            background:#f5f7fa; 
+        }
+        .btn-print { 
+            background:#2563eb; 
+            color:white; 
+            margin-left:8px; 
+        }
+        .btn-close { 
+            background:#f1f5f9; 
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #app, #app * { visibility: visible; }
+            .modal-back, .btn-print, .btn-print-page, .btn-close, .file-label, .btn-outline, .btn-primary, .btn-secondary, .lang-switch { display: none !important; }
+            footer, .history-section, .debug-tip { display: none !important; }
+
+            .app-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 0.5% 1%; 
+                margin: 0;
+                box-sizing: border-box;
+            }
+
+            @page {
+                margin: 10mm;
+                size: auto;
+            }
+            
+            .material-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 4px !important;
+                page-break-after: avoid;
+                width: 100%;
+            }
+
+            .material-card {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                width: 100% !important;
+                margin: 2px 0 !important;
+                min-height: 280px !important;
+                max-height: 300px !important;
+            }
+
+            .material-img {
+                width: 90% !important;
+                height: auto !important;
+                max-height: 180px !important;
+                max-width: none !important;
+            }
+
+            .material-name { font-size: 0.8rem !important; line-height: 1.2 !important; }
+            .material-code { font-size: 0.7rem !important; }
+            .material-qty { font-size: 0.7rem !important; }
+            .btn-pass, .btn-fail { font-size: 0.7rem !important; padding: 4px 0 !important; }
+            .result-badge { font-size: 0.65rem !important; }
+            .upload-img-btn { display: none !important; }
+        }
+
+        #print-area, #print-area * { visibility: visible; }
+        #print-area {
+            position: absolute;
+            left:0;
+            top:0;
+            width: 100%;
+            padding: 1%;
+        }
+        .print-table {
+            width: 100%;
+            font-size: 0.8rem;
+        }
+
+        footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            font-size: 0.7rem; 
+            color: #7f8ea3; 
+        }
+        
+        @media (max-width: 640px) { 
+            .material-grid { grid-template-columns: 1fr; }
+            .material-card { min-height: 380px; }
+            .material-img { max-height: 250px; }
+            .lang-switch { position: static; margin-top: 10px; justify-content: flex-start; }
+            .col-setting { padding: 12px; gap: 10px; }
+            .col-setting .auto-tip { display: block; width: 100%; margin-bottom: 8px; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="app-container">
+        <div class="header">
+            <div class="lang-switch">
+                <button class="lang-btn" :class="{active: currentLang === 'zh'}" @click="switchLang('zh')">中文</button>
+                <button class="lang-btn" :class="{active: currentLang === 'vn'}" @click="switchLang('vn')">Tiếng Việt</button>
+            </div>
+            
+            <h1>{{ t('title') }}</h1>
+            <div class="sub">{{ t('subtitle') }}</div>
+            <div class="info-panel">
+                <div class="info-item">
+                    <label>{{ t('model') }}</label>
+                    <input type="text" v-model="selectedModel" :placeholder="t('model_placeholder')">
+                </div>
+                <div class="info-item">
+                    <label>{{ t('operator') }}</label>
+                    <input type="text" v-model="operator" :placeholder="t('operator_placeholder')">
+                </div>
+                <div class="info-item">
+                    <label>{{ t('date') }}</label>
+                    <input type="date" v-model="checkDate">
+                </div>
+                <div class="info-item">
+                    <label>{{ t('time') }}</label>
+                    <input type="time" v-model="shift">
+                </div>
+            </div>
+            
+            <div class="col-setting">
+                <div class="auto-tip">🤖 {{ autoRecognizeTip }}</div>
+                <div>{{ t('start_row') }}：<input type="number" v-model="startRow" min="0" :placeholder="t('start_row_placeholder')"></div>
+                <div>{{ t('code_col') }}：<input type="number" v-model="codeCol" min="0" :placeholder="t('code_col_placeholder')"></div>
+                <div>{{ t('name_col') }}：<input type="number" v-model="nameCol" min="0" :placeholder="t('name_col_placeholder')"></div>
+                <div>{{ t('qty_col') }}：<input type="number" v-model="qtyCol" min="0" :placeholder="t('qty_col_placeholder')"></div>
+                <button @click="confirmColSetting" class="btn-outline">{{ t('confirm_config') }}</button>
+            </div>
+            
+            <div class="debug-tip" v-if="debugMsg">{{ debugMsg }}</div>
+        </div>
+
+        <div class="bom-actions">
+            <div class="file-zone">
+                <label class="file-label">
+                    📂 {{ t('upload_bom') }}
+                    <input type="file" accept=".xlsx,.xls,.csv" @change="handleBOMUpload">
+                </label>
+                <button class="btn-outline" @click="clearAllMaterials">🗑️ {{ t('clear_materials') }}</button>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <div class="stats">
+                <div class="stat-badge">✅ {{ t('pass') }} <span class="number">{{ passCount }}</span></div>
+                <div class="stat-badge">❌ {{ t('fail') }} <span class="number">{{ failCount }}</span></div>
+                <div class="stat-badge">⏳ {{ t('pending') }} <span class="number">{{ pendingCount }}</span></div>
+                <div class="stat-badge">📦 {{ t('total') }} <span class="number">{{ materials.length }}</span></div>
+            </div>
+            <div>
+                <button class="btn-secondary" @click="resetAllJudgments">🔄 {{ t('reset') }}</button>
+                <button class="btn-primary" @click="submitCheck">📎 {{ t('submit') }}</button>
+                <button class="btn-print-page" @click="printCurrentPage">🖨️ {{ t('print_page') }}</button>
+            </div>
+        </div>
+
+        <div class="material-grid">
+            <div class="material-card" v-for="item in materials" :key="item.id">
+                <div class="card-img-area">
+                    <img class="material-img" :src="item.imageData || defaultImage" @error="imgError(item)">
+                    <label class="upload-img-btn" :for="'up'+item.id">📷 {{ t('upload_image') }} ({{ t('auto_compress') }})</label>
+                    <input type="file" :id="'up'+item.id" accept="image/*" style="display:none" @change="e=>uploadMaterialImage(item,e)">
+                </div>
+                <div class="card-info">
+                    <div class="material-name">{{ item.name || t('no_material_name') }}</div>
+                    <div class="material-code">{{ item.code }}</div>
+                    <div class="material-qty">{{ t('quantity') }}：{{ item.qty }}</div>
+                    <div class="decision-buttons">
+                        <button class="btn-pass" :class="{ 'active-pass': item.result === 'pass' }" @click="setResult(item,'pass')">{{ t('pass') }}</button>
+                        <button class="btn-fail" :class="{ 'active-fail': item.result === 'fail' }" @click="setResult(item,'fail')">{{ t('fail') }}</button>
+                    </div>
+                    <div class="result-badge" v-if="item.result === 'pass'">✔ {{ t('qualified') }}</div>
+                    <div class="result-badge" v-else-if="item.result === 'fail'">⚠ {{ t('unqualified') }}</div>
+                    <div class="result-badge" v-else>⚪ {{ t('pending_check') }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <div style="display:flex;justify-content:space-between;">
+                <span>📋 {{ t('history_records') }}</span>
+                <button class="btn-secondary" style="padding:4px 12px" @click="clearHistory">{{ t('clear_history') }}</button>
+            </div>
+            <div class="history-list">
+                <div v-if="!historyRecords.length" class="empty-history">{{ t('no_records') }}</div>
+                
+                <div v-for="(r,idx) in historyRecords" :key="idx" class="history-item">
+                    <div>
+                        {{ r.modelName }} | {{ r.operator }} | {{ r.date }} {{ r.shift }} 
+                        ✅{{ r.passQty }} | ❌{{ r.failQty }} | 📦{{ r.totalQty }}
+                    </div>
+                    <div>
+                        <button class="btn-secondary" style="padding:4px 10px" @click="viewRecord(r,idx)">{{ t('view') }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>{{ t('footer_text') }}</footer>
+    </div>
+
+    <div class="modal-back" v-if="showModal" @click.self="showModal=false">
+        <div class="modal" id="print-area">
+            <div class="modal-title">📋 {{ t('record_detail') }}</div>
+            <div class="info-line"><b>{{ t('model') }}：</b>{{ currentRecord.modelName }}</div>
+            <div class="info-line"><b>{{ t('operator') }}：</b>{{ currentRecord.operator }}</div>
+            <div class="info-line"><b>{{ t('datetime') }}：</b>{{ currentRecord.date }} {{ currentRecord.shift }}</div>
+            <div class="info-line"><b>{{ t('submit_time') }}：</b>{{ currentRecord.timeStr }}</div>
+            <div class="info-line"><b>{{ t('total') }}：</b> {{ currentRecord.totalQty }} {{ t('items') }} | ✅{{ t('pass') }}：{{ currentRecord.passQty }} | ❌{{ t('unqualified') }}：{{ currentRecord.failQty }}</div>
+            
+            <table class="print-table">
+                <tr>
+                    <th>{{ t('serial_number') }}</th>
+                    <th>{{ t('material_name') }}</th>
+                    <th>{{ t('material_code') }}</th>
+                    <th>{{ t('quantity') }}</th>
+                    <th>{{ t('result') }}</th>
+                </tr>
+                <tr v-for="(it,i) in currentRecord.items" :key="i">
+                    <td>{{ i+1 }}</td>
+                    <td>{{ it.name || t('not_filled') }}</td>
+                    <td>{{ it.code }}</td>
+                    <td>{{ it.qty }}</td>
+                    <td :style="it.result==='pass'?'color:green;font-weight:bold':'color:red;font-weight:bold'">
+                        {{ it.result==='pass'?t('pass'):t('fail') }}
+                    </td>
+                </tr>
+            </table>
+
+            <div style="text-align:right;margin-top:20px;">
+                <button class="btn-close" @click="showModal=false">{{ t('close') }}</button>
+                <button class="btn-print" @click="printRecord">{{ t('print_this_record') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const DEFAULT_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23e2e8f0'/%3E%3Ctext x='150' y='155' text-anchor='middle' fill='%23999' font-size='16'%3E无图片%3C/text%3E%3C/svg%3E";
+const STORAGE_KEY = 'bom_check_history';
+
+const langConfig = {
+    zh: {
+        title: '包装首件核对系统',
+        subtitle: '精准识别：子件编码 | 子件名称 | 基本用量',
+        model: '📌 机型/项目',
+        model_placeholder: '手动输入机型/项目',
+        operator: '👤 操作员',
+        operator_placeholder: '工号/姓名',
+        date: '📅 日期',
+        time: '⏰ 时间',
+        bom_config: 'BOM解析配置',
+        auto_recognize: '精准识别BOM列',
+        start_row: '起始行号',
+        start_row_placeholder: '1',
+        code_col: '子件编码列',
+        code_col_placeholder: '自动',
+        name_col: '子件名称列',
+        name_col_placeholder: '自动',
+        qty_col: '基本用量列',
+        qty_col_placeholder: '自动',
+        confirm_config: '确认配置',
+        upload_bom: '上传 BOM',
+        clear_materials: '清空物料',
+        pass: 'PASS',
+        fail: 'FAIL',
+        pending: '待判定',
+        total: '总数',
+        reset: '重置',
+        submit: '提交',
+        print_page: '打印当前页面',
+        upload_image: '上传图片',
+        auto_compress: '自动压缩',
+        no_material_name: '未填写物料名称',
+        quantity: '数量',
+        qualified: '合格',
+        unqualified: '不合格',
+        pending_check: '待核对',
+        history_records: '历史记录',
+        clear_history: '清空记录',
+        no_records: '暂无记录',
+        view: '查看',
+        footer_text: '首件核对系统｜精准识别BOM｜图片最大化',
+        record_detail: '首件核对记录详情',
+        datetime: '日期时间',
+        submit_time: '提交时间',
+        items: '项',
+        serial_number: '序号',
+        material_name: '子件名称',
+        material_code: '子件编码',
+        result: '结果',
+        not_filled: '未填写',
+        close: '关闭',
+        print_this_record: '打印本记录',
+        
+        auto_recognize_success: '✅ 精准识别：子件编码={0} | 子件名称={1} | 基本用量={2}',
+        config_effective: '✅ 配置已生效',
+        file_rows: '📂 读取文件，总行数：{0}',
+        no_valid_materials: '❌ 无有效物料',
+        parse_success: '✅ 解析成功：{0} 项',
+        no_file_selected: '❌ 未选择文件',
+        upload_file: '📥 上传：{0}',
+        parse_failed: '❌ 解析失败',
+        compressing_image: '🖼️ 正在压缩图片...',
+        compress_success: '✅ 图片压缩完成',
+        submit_success: '提交成功！',
+    },
+    vn: {
+        title: 'Hệ thống kiểm tra mẫu đầu tiên',
+        subtitle: 'Nhận diện chính xác: Mã phụ kiện | Tên phụ kiện | Lượng cơ bản',
+        model: '📌 Mô hình',
+        operator: '👤 Người vận hành',
+        date: '📅 Ngày',
+        time: '⏰ Giờ',
+        bom_config: 'Cấu hình BOM',
+        auto_recognize: 'Nhận diện tự động',
+        start_row: 'Hàng bắt đầu',
+        code_col: 'Cột mã phụ kiện',
+        name_col: 'Cột tên phụ kiện',
+        qty_col: 'Cột lượng cơ bản',
+        confirm_config: 'Xác nhận',
+        upload_bom: 'Tải BOM',
+        clear_materials: 'Xóa vật liệu',
+        pass: 'ĐƯỢC',
+        fail: 'KHÔNG',
+        pending: 'Chờ xét',
+        total: 'Tổng',
+        reset: 'Đặt lại',
+        submit: 'Gửi',
+        print_page: 'In trang',
+        upload_image: 'Tải ảnh',
+        auto_compress: 'Nén tự động',
+        no_material_name: 'Chưa có tên',
+        quantity: 'Số lượng',
+        qualified: 'Đủ tiêu chuẩn',
+        unqualified: 'Không đạt',
+        pending_check: 'Chờ kiểm tra',
+        history_records: 'Lịch sử',
+        clear_history: 'Xóa lịch sử',
+        no_records: 'Chưa có bản ghi',
+        view: 'Xem',
+        footer_text: 'Kiểm tra mẫu đầu tiên | Nhận diện BOM chính xác',
+        record_detail: 'Chi tiết bản ghi',
+        datetime: 'Ngày giờ',
+        submit_time: 'Thời gian gửi',
+        items: 'mục',
+        serial_number: 'STT',
+        material_name: 'Tên phụ kiện',
+        material_code: 'Mã phụ kiện',
+        result: 'Kết quả',
+        not_filled: 'Chưa điền',
+        close: 'Đóng',
+        print_this_record: 'In bản ghi',
+        auto_recognize_success: '✅ Nhận diện thành công: Mã={0} | Tên={1} | Lượng={2}',
+        parse_success: '✅ Phân tích thành công: {0} mục',
+        submit_success: 'Gửi thành công!',
+    }
+};
+
+// 图片压缩
+const compressImage = (file, quality = 0.8, maxWidth = 1200, maxHeight = 1200) => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+                if (w > maxWidth) { h *= maxWidth / w; w = maxWidth; }
+                if (h > maxHeight) { w *= maxHeight / h; h = maxHeight; }
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0,0,w,h);
+                const dataURL = canvas.toDataURL(file.type, quality);
+                resolve(dataURL);
+            };
+        };
+    });
+};
+
+// ==============================================
+// 【核心】只识别你指定的三个表头：子件编码 / 子件名称 / 基本用量
+// ==============================================
+const autoRecognizeFixedColumns = (headerRow) => {
+    let codeCol = null, nameCol = null, qtyCol = null;
+    (headerRow || []).forEach((val, idx) => {
+        if (!val) return;
+        const s = String(val).trim();
+        if (s.includes("子件编码")) codeCol = idx;
+        if (s.includes("子件名称")) nameCol = idx;
+        if (s.includes("基本用量")) qtyCol = idx;
+    });
+    return { codeCol, nameCol, qtyCol };
+};
+
+createApp({
+    setup() {
+        const currentLang = ref('zh');
+        const autoRecognizeTip = ref('精准识别：子件编码 | 子件名称 | 基本用量');
+        
+        const t = (key, ...args) => {
+            let txt = langConfig[currentLang.value][key] || key;
+            args.forEach((v,i)=>txt=txt.replace(`{${i}}`,v));
+            return txt;
+        };
+        const switchLang = (l)=>{ currentLang.value=l; };
+
+        const selectedModel = ref('');
+        const operator = ref('');
+        const checkDate = ref(new Date().toISOString().split('T')[0]);
+        const shift = ref('');
+        const materials = ref([]);
+        const historyRecords = ref([]);
+        const defaultImage = DEFAULT_IMG;
+        const debugMsg = ref('');
+
+        const startRow = ref(1);
+        const codeCol = ref(null);
+        const nameCol = ref(null);
+        const qtyCol = ref(null);
+        const colSettingConfirmed = ref(false);
+
+        const showModal = ref(false);
+        const currentRecord = ref({});
+
+        const passCount = computed(()=>materials.value.filter(x=>x.result==='pass').length);
+        const failCount = computed(()=>materials.value.filter(x=>x.result==='fail').length);
+        const pendingCount = computed(()=>materials.value.filter(x=>!x.result).length);
+
+        const loadHistory = ()=>{
+            try{const s=localStorage.getItem(STORAGE_KEY);if(s)historyRecords.value=JSON.parse(s);}catch(e){}
+        };
+        const saveHistory = ()=>localStorage.setItem(STORAGE_KEY,JSON.stringify(historyRecords.value));
+
+        const confirmColSetting = ()=>{
+            colSettingConfirmed.value=true;
+            debugMsg.value=t('config_effective');
+        };
+
+        // 解析BOM（固定识别规则）
+        const parseBOM = (rows)=>{
+            if (!rows || rows.length<2) return [];
+            const head = rows[0] || [];
+            const cols = autoRecognizeFixedColumns(head);
+            
+            codeCol.value = cols.codeCol;
+            nameCol.value = cols.nameCol;
+            qtyCol.value = cols.qtyCol;
+
+            autoRecognizeTip.value = t('auto_recognize_success',
+                cols.codeCol ?? '?',
+                cols.nameCol ?? '?',
+                cols.qtyCol ?? '?'
+            );
+
+            const sRow = +startRow.value || 1;
+            const cCol = +cols.codeCol >=0 ? +cols.codeCol : 3;
+            const nCol = +cols.nameCol >=0 ? +cols.nameCol : 4;
+            const qCol = +cols.qtyCol >=0 ? +cols.qtyCol : 8;
+
+            const items = [];
+            for(let i=sRow;i<rows.length;i++){
+                const r=rows[i]; if(!r)continue;
+                const code = (r[cCol]??'').toString().trim();
+                const name = (r[nCol]??'').toString().trim();
+                const qty = parseFloat((r[qCol]??'').toString().replace(/,/g,''))||0;
+                if(code && qty>0) items.push({
+                    id:Math.random(), code,name,qty,imageData:null,result:null
+                });
+            }
+            debugMsg.value=t('parse_success',items.length);
+            return items;
+        };
+
+        const handleBOMUpload = (e)=>{
+            const f=e.target.files[0]; if(!f)return;
+            materials.value=[];
+            const r=new FileReader();
+            r.onload=ev=>{
+                const wb=XLSX.read(ev.target.result,{type:'array'});
+                const ws=wb.Sheets[wb.SheetNames[0]];
+                const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+                materials.value=parseBOM(rows);
+                e.target.value='';
+            };
+            r.readAsArrayBuffer(f);
+        };
+
+        const uploadMaterialImage = async (item,e)=>{
+            const f=e.target.files[0];if(!f)return;
+            item.imageData = await compressImage(f);
+            materials.value=[...materials.value];
+        };
+
+        const imgError = (it)=>it.imageData=DEFAULT_IMG;
+        const setResult = (i,s)=>i.result=i.result===s?null:s;
+        const resetAllJudgments = ()=>materials.value.forEach(x=>x.result=null);
+        const clearAllMaterials = ()=>materials.value=[];
+
+        const submitCheck = ()=>{
+            if(!selectedModel.value||!operator.value||!shift.value||!materials.value.length)return;
+            const now = new Date().toLocaleTimeString();
+            historyRecords.value.unshift({
+                modelName:selectedModel.value,
+                operator:operator.value,
+                date:checkDate.value,
+                shift:shift.value,
+                passQty:passCount.value,
+                failQty:failCount.value,
+                totalQty:materials.value.length,
+                timeStr:now,
+                items:JSON.parse(JSON.stringify(materials.value))
+            });
+            if(historyRecords.value.length>30)historyRecords.value.pop();
+            saveHistory();
+            alert(t('submit_success'));
+        };
+
+        const viewRecord = (r)=>{ currentRecord.value=JSON.parse(JSON.stringify(r)); showModal.value=true; };
+        const printRecord = ()=>setTimeout(()=>print(),200);
+        const printCurrentPage = ()=>confirm('In trang hiện tại?')&&setTimeout(()=>print(),200);
+        const clearHistory = ()=>{ historyRecords.value=[]; saveHistory(); };
+
+        onMounted(()=>{ loadHistory(); });
+
+        return {
+            currentLang,switchLang,t,autoRecognizeTip,
+            selectedModel,operator,checkDate,shift,materials,historyRecords,
+            passCount,failCount,pendingCount,defaultImage,
+            startRow,codeCol,nameCol,qtyCol,confirmColSetting,
+            handleBOMUpload,clearAllMaterials,uploadMaterialImage,imgError,
+            setResult,resetAllJudgments,submitCheck,clearHistory,
+            debugMsg,showModal,currentRecord,viewRecord,printRecord,printCurrentPage
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
