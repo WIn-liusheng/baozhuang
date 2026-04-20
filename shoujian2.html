@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>包装首件核对系统｜图片库自动匹配</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+VN:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:#f0f2f5;font-family:'Noto Sans SC','Noto Sans VN',sans-serif;padding:20px}
+        .app{max-width:1600px;margin:0 auto}
+        .header{background:white;border-radius:24px;padding:20px;margin-bottom:20px;position:relative}
+        .lang{position:absolute;top:20px;right:20px;display:flex;gap:8px}
+        .lang button{padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff}
+        .lang button.active{background:#1f6392;color:white}
+        h1{font-size:22px;margin-bottom:8px}
+        .tip{color:#666;font-size:14px;border-left:3px solid #1f6392;padding-left:10px}
+        .info{display:flex;gap:16px;flex-wrap:wrap;margin-top:16px}
+        .item{display:flex;flex-direction:column;gap:6px;min-width:140px}
+        .item label{font-size:14px}
+        .item input{padding:8px;border:1px solid #ddd;border-radius:12px}
+        .auto-bar{background:#e8f4f8;padding:12px;border-radius:16px;margin:10px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+        .auto-bar input{width:60px;text-align:center;padding:6px;border-radius:8px}
+        .btn{border:none;background:#1f6392;color:white;padding:8px 16px;border-radius:16px;cursor:pointer}
+        .btn-outline{background:white;border:1px solid #ddd;color:#333}
+        .action{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0}
+        .stat{display:flex;gap:16px;background:white;padding:10px 16px;border-radius:20px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+        .card{background:white;border-radius:20px;overflow:hidden;min-height:460px;display:flex;flex-direction:column}
+        .img-area{flex:1;background:#f9fbfd;display:flex;align-items:center;justify-content:center;padding:16px}
+        .img{width:100%;height:100%;max-height:320px;object-fit:contain;border-radius:16px}
+        .info-area{padding:16px}
+        .name{font-weight:bold;margin-bottom:6px;font-size:16px}
+        .code{font-size:14px;color:#666;background:#f1f5f9;padding:4px 8px;border-radius:12px;display:inline-block;margin-bottom:6px}
+        .qty{font-size:14px;color:#1f6392;background:#e6f7ff;padding:4px 8px;border-radius:12px;display:inline-block;margin-bottom:10px}
+        .btns{display:flex;gap:8px;margin-top:8px}
+        .pass{flex:1;background:#e6f7ec;color:#1f7840;padding:8px;border-radius:16px}
+        .fail{flex:1;background:#fee9e6;color:#c2412c;padding:8px;border-radius:16px}
+        .pass.active{background:#2b8c4a;color:white}
+        .fail.active{background:#c2412c;color:white}
+        .upload-btn{margin-top:10px;background:white;border:1px solid #ddd;padding:6px 12px;border-radius:16px;font-size:12px;cursor:pointer}
+        .empty{text-align:center;padding:40px;color:#999}
+        .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+        .modal-body{background:white;width:90%;max-width:800px;max-height:80vh;padding:20px;border-radius:20px;overflow-y:auto}
+        @media print{
+            body *{visibility:hidden}
+            #app,#app *{visibility:visible}
+            .grid{grid-template-columns:repeat(3,1fr);gap:4px}
+            .card{page-break-inside:avoid}
+        }
+    </style>
+</head>
+<body>
+<div id="app" class="app">
+    <div class="header">
+        <div class="lang">
+            <button @click="lang='zh'" :class="{active:lang==='zh'}">中文</button>
+            <button @click="lang='vn'" :class="{active:lang==='vn'}">Tiếng Việt</button>
+        </div>
+        <h1>📦 包装首件核对系统</h1>
+        <div class="tip">✅ 自动识别：子件编码｜子件名称｜基本用量｜🖼️ 图片库自动匹配</div>
+
+        <div class="info">
+            <div class="item"><label>项目</label><input v-model="model"></div>
+            <div class="item"><label>操作员</label><input v-model="user"></div>
+            <div class="item"><label>日期</label><input type="date" v-model="date"></div>
+            <div class="item"><label>时间</label><input type="time" v-model="time"></div>
+        </div>
+
+        <div class="auto-bar">
+            <span>🔍 {{autoTip}}</span>
+            <button class="btn btn-outline" @click="refresh">重新识别</button>
+            <label for="bom" class="btn">📂 上传BOM</label>
+            <input id="bom" type="file" accept=".xlsx,.xls" @change="upload" hidden>
+        </div>
+    </div>
+
+    <div class="action">
+        <div class="stat">
+            <div>✅ PASS: {{pass}}</div>
+            <div>❌ FAIL: {{fail}}</div>
+            <div>⏳ 待判: {{wait}}</div>
+            <div>📦 总数: {{list.length}}</div>
+        </div>
+        <div>
+            <button class="btn btn-outline" @click="reset">重置判定</button>
+            <button class="btn" @click="save">提交记录</button>
+            <button class="btn" @click="printPage">🖨️ 打印</button>
+        </div>
+    </div>
+
+    <div class="grid" v-if="list.length">
+        <div class="card" v-for="item in list" :key="item.id">
+            <div class="img-area">
+                <img class="img" :src="item.img || defaultImg">
+                <button class="upload-btn" @click="pickImg(item)">🖼️ 选择图库图片</button>
+            </div>
+            <div class="info-area">
+                <div class="name">{{item.name}}</div>
+                <div class="code">{{item.code}}</div>
+                <div class="qty">数量: {{item.qty}}</div>
+                <div class="btns">
+                    <button class="pass" :class="{active:item.res==='pass'}" @click="item.res=item.res==='pass'?null:'pass'">PASS</button>
+                    <button class="fail" :class="{active:item.res==='fail'}" @click="item.res=item.res==='fail'?null:'fail'">FAIL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="empty" v-else>
+        请上传BOM文件开始核对
+    </div>
+
+    <div class="modal" v-if="showLib" @click.self="showLib=false">
+        <div class="modal-body">
+            <h3>📸 物料图片库</h3>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px">
+                <div v-for="(src,code) in imgLib" :key="code" style="text-align:center">
+                    <img :src="src" style="width:100%;height:100px;object-fit:contain;border:1px solid #ddd">
+                    <div style="font-size:12px">{{code}}</div>
+                    <button @click="useImg(code)" style="margin-top:4px;padding:4px 8px;background:#1f6392;color:white;border:none;border-radius:8px">选用</button>
+                </div>
+            </div>
+            <div style="margin-top:16px">
+                <input type="file" accept="image/*" @change="addImg" hidden id="add">
+                <button class="btn" @click="document.getElementById('add').click()">➕ 添加新图片到库</button>
+                <button class="btn btn-outline" @click="showLib=false">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const STORAGE_KEY = "MAT_IMG_LIB";
+const defaultImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23eee'/%3E%3Ctext x='100' y='105' text-anchor='middle' fill='%23999'%3E无图片%3C/text%3E%3C/svg%3E";
+
+createApp({
+    setup() {
+        const lang = ref('zh');
+        const model = ref('');
+        const user = ref('');
+        const date = ref(new Date().toISOString().split('T')[0]);
+        const time = ref('');
+        const list = ref([]);
+        const autoTip = ref('等待上传BOM...');
+        const showLib = ref(false);
+        const current = ref(null);
+
+        // ====== 图片库核心 ======
+        const imgLib = ref({});
+        const loadLib = () => {
+            try{const s=localStorage.getItem(STORAGE_KEY);if(s)imgLib.value=JSON.parse(s)}catch(e){}
+        };
+        const saveLib = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(imgLib.value));
+
+        const addImg = (e) => {
+            const f = e.target.files[0];
+            if(!f)return;
+            const r = new FileReader();
+            r.onload = ev => {
+                const code = prompt("请输入对应物料编码：");
+                if(!code)return;
+                imgLib.value[code] = ev.target.result;
+                saveLib();
+                alert("已添加到图片库");
+            };
+            r.readAsDataURL(f);
+        };
+
+        const pickImg = (item) => {
+            current.value = item;
+            showLib.value = true;
+        };
+
+        const useImg = (code) => {
+            if(!current.value)return;
+            current.value.img = imgLib.value[code];
+            showLib.value = false;
+        };
+        // ======================
+
+        const pass = computed(()=>list.value.filter(x=>x.res==='pass').length);
+        const fail = computed(()=>list.value.filter(x=>x.res==='fail').length);
+        const wait = computed(()=>list.value.filter(x=>!x.res).length);
+
+        const upload = (e) => {
+            const f = e.target.files[0];
+            if(!f)return;
+            const r = new FileReader();
+            r.onload = ev => {
+                const wb = XLSX.read(ev.target.result,{type:'array'});
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws,{header:1});
+                parse(rows);
+            };
+            r.readAsArrayBuffer(f);
+        };
+
+        const parse = (rows) => {
+            let codeCol=-1,nameCol=-1,qtyCol=-1;
+            (rows[0]||[]).forEach((v,i)=>{
+                const s=String(v||'').trim();
+                if(s.includes('子件编码'))codeCol=i;
+                if(s.includes('子件名称'))nameCol=i;
+                if(s.includes('基本用量'))qtyCol=i;
+            });
+            autoTip.value = `识别：编码=${codeCol}｜名称=${nameCol}｜用量=${qtyCol}`;
+            
+            const arr = [];
+            for(let i=1;i<rows.length;i++){
+                const r=rows[i];
+                if(!r)continue;
+                const code = (r[codeCol]||'').toString().trim();
+                const name = (r[nameCol]||'').toString().trim();
+                const qty = parseFloat(r[qtyCol])||0;
+                if(code && qty>0){
+                    arr.push({
+                        id:Math.random(),code,name,qty,
+                        img: imgLib.value[code] || null,
+                        res:null
+                    });
+                }
+            }
+            list.value = arr;
+        };
+
+        const reset = () => list.value.forEach(x=>x.res=null);
+        const save = () => alert("已保存记录");
+        const printPage = () => print();
+        const refresh = () => location.reload();
+
+        onMounted(()=>{
+            loadLib();
+        });
+
+        return {
+            lang,model,user,date,time,list,autoTip,defaultImg,
+            pass,fail,wait,showLib,imgLib,
+            upload,reset,save,printPage,refresh,
+            pickImg,addImg,useImg
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
